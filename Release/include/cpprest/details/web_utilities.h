@@ -17,12 +17,15 @@ namespace web
 {
 namespace details
 {
+template<typename T = ::utility::string_t>
 class zero_memory_deleter
 {
 public:
-    _ASYNCRTIMP void operator()(::utility::string_t* data) const;
+    _ASYNCRTIMP void operator()(T* data) const;
 };
-typedef std::unique_ptr<::utility::string_t, zero_memory_deleter> plaintext_string;
+
+template<typename T = ::utility::string_t>
+using plaintext_string = std::unique_ptr<T, zero_memory_deleter<T>>;
 
 #ifdef _WIN32
 #if _WIN32_WINNT >= _WIN32_WINNT_VISTA
@@ -31,25 +34,41 @@ class winrt_encryption
 {
 public:
     winrt_encryption() = default;
-    _ASYNCRTIMP winrt_encryption(const std::wstring& data);
-    _ASYNCRTIMP plaintext_string decrypt() const;
+    _ASYNCRTIMP winrt_encryption(const ::utility::string_t& data);
+
+    template<typename T = ::utility::string_t>
+    _ASYNCRTIMP plaintext_string<T> decrypt() const;
 
 private:
+    plaintext_string<::utility::string_t> decrypt_t() const;
+
     ::pplx::task<Windows::Storage::Streams::IBuffer ^> m_buffer;
 };
+
+template _ASYNCRTIMP plaintext_string<utf8string> winrt_encryption::decrypt<utf8string>() const;
+template _ASYNCRTIMP plaintext_string<utf16string> winrt_encryption::decrypt<utf16string>() const;
+
 #else  // ^^^ __cplusplus_winrt ^^^ // vvv !__cplusplus_winrt vvv
 class win32_encryption
 {
 public:
     win32_encryption() = default;
-    _ASYNCRTIMP win32_encryption(const std::wstring& data);
+    _ASYNCRTIMP win32_encryption(const ::utility::string_t& data);
     _ASYNCRTIMP ~win32_encryption();
-    _ASYNCRTIMP plaintext_string decrypt() const;
+
+    template<typename T = ::utility::string_t>
+    _ASYNCRTIMP plaintext_string<T> decrypt() const;
 
 private:
+    plaintext_string<::utility::string_t> decrypt_t() const;
+
     std::vector<char> m_buffer;
-    size_t m_numCharacters;
+    size_t m_numCharacters = 0;
 };
+
+template _ASYNCRTIMP plaintext_string<utf8string> win32_encryption::decrypt<utf8string>() const;
+template _ASYNCRTIMP plaintext_string<utf16string> win32_encryption::decrypt<utf16string>() const;
+
 #endif // __cplusplus_winrt
 #endif // _WIN32_WINNT >= _WIN32_WINNT_VISTA
 #endif // _WIN32
@@ -104,15 +123,22 @@ public:
     /// <returns><c>true</c> if user name and password is set, <c>false</c> otherwise.</returns>
     bool is_set() const { return !m_username.empty(); }
 
-    details::plaintext_string _internal_decrypt() const
+    template<typename T = ::utility::string_t>
+    details::plaintext_string<T> _internal_decrypt() const
     {
         // Encryption APIs not supported on XP
 #if defined(_WIN32) && _WIN32_WINNT >= _WIN32_WINNT_VISTA
-        return m_password.decrypt();
+        return m_password.decrypt<T>();
 #else
-        return details::plaintext_string(new ::utility::string_t(m_password));
+        return details::plaintext_string<T>(new T(to_utfstring<T>(m_password)));
 #endif
     }
+
+private:
+
+    template<typename T> static T to_utfstring(const ::utility::string_t& s);
+    template<> static utf8string to_utfstring<utf8string>(const ::utility::string_t& s) { return ::utility::conversions::to_utf8string(s); }
+    template<> static utf16string to_utfstring<utf16string>(const ::utility::string_t& s) { return ::utility::conversions::to_utf16string(s); }
 
 private:
     ::utility::string_t m_username;
