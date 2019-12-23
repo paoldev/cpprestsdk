@@ -77,7 +77,7 @@ void fill_file_with_lines(const utility::string_t& name, const std::string& end,
 void fill_file_w(const utility::string_t& name, size_t repetitions = 1)
 {
     FILE* stream = nullptr;
-    _wfopen_s(&stream, get_full_name(name).c_str(), L"w");
+    _wfopen_s(&stream, utility::conversions::to_utf16string(get_full_name(name)).c_str(), L"w");
     if (stream == nullptr)
     {
         VERIFY_IS_TRUE(false, "FILE pointer is null");
@@ -831,8 +831,8 @@ SUITE(istream_tests)
         rbuf.close(std::ios_base::out).get();
 
         streams::basic_istream<char> is = rbuf;
-        utility::string_t str1 = is.extract<utility::string_t>().get();
-        utility::string_t str2 = is.extract<utility::string_t>().get();
+        utf16string str1 = is.extract<utf16string>().get();
+        utf16string str2 = is.extract<utf16string>().get();
 
         VERIFY_ARE_EQUAL(str1, L"abc");
         VERIFY_ARE_EQUAL(str2, L"defgsf");
@@ -848,8 +848,8 @@ SUITE(istream_tests)
         rbuf.close(std::ios_base::out).get();
 
         streams::basic_istream<char> is = rbuf;
-        utility::string_t str1 = is.extract<utility::string_t>().get();
-        utility::string_t str2 = is.extract<utility::string_t>().get();
+        utf16string str1 = is.extract<utf16string>().get();
+        utf16string str2 = is.extract<utf16string>().get();
 
         VERIFY_ARE_EQUAL(str1, L"abc");
         VERIFY_ARE_EQUAL(str2, L"defgsf");
@@ -865,8 +865,8 @@ SUITE(istream_tests)
         rbuf.close(std::ios_base::out).get();
 
         streams::basic_istream<char> is = rbuf;
-        utility::string_t str1 = is.extract<utility::string_t>().get();
-        utility::string_t str2 = is.extract<utility::string_t>().get();
+        utf16string str1 = is.extract<utf16string>().get();
+        utf16string str2 = is.extract<utf16string>().get();
 
         VERIFY_ARE_EQUAL(str1, L"abc");
         VERIFY_ARE_EQUAL(str2, L"defgsf");

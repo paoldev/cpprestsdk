@@ -22,7 +22,7 @@ namespace uri_tests
 {
 SUITE(encoding_tests)
 {
-#ifdef _WIN32
+#ifdef _UTF16_STRINGS
 #pragma warning(push)
 #pragma warning(disable : 4428)
     TEST(encode_string)

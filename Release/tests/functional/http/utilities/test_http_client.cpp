@@ -65,8 +65,8 @@ static void parse_status_code(HINTERNET request_handle, unsigned short& code)
 {
     DWORD length = 0;
     query_header_length(request_handle, WINHTTP_QUERY_STATUS_CODE, length);
-    utility::string_t buffer;
-    buffer.resize(length);
+    std::wstring buffer;
+    buffer.resize(length / sizeof(wchar_t), L'\0');
     WinHttpQueryHeaders(request_handle,
                         WINHTTP_QUERY_STATUS_CODE,
                         WINHTTP_HEADER_NAME_BY_INDEX,
@@ -77,7 +77,7 @@ static void parse_status_code(HINTERNET request_handle, unsigned short& code)
 }
 
 // Helper function to trim leading and trailing null characters from a string.
-static void trim_nulls(utility::string_t& str)
+static void trim_nulls(utf16string& str)
 {
     size_t index;
     for (index = 0; index < str.size() && str[index] == 0; ++index)
@@ -94,15 +94,17 @@ static void parse_reason_phrase(HINTERNET request_handle, utility::string_t& phr
 {
     DWORD length = 0;
     query_header_length(request_handle, WINHTTP_QUERY_STATUS_TEXT, length);
-    phrase.resize(length);
+    std::wstring buffer;
+    buffer.resize(length / sizeof(wchar_t), L'\0');
     WinHttpQueryHeaders(request_handle,
                         WINHTTP_QUERY_STATUS_TEXT,
                         WINHTTP_HEADER_NAME_BY_INDEX,
-                        &phrase[0],
+                        &buffer[0],
                         &length,
                         WINHTTP_NO_HEADER_INDEX);
     // WinHTTP reports back the wrong length, trim any null characters.
-    trim_nulls(phrase);
+    trim_nulls(buffer);
+    phrase = utility::conversions::to_string_t(buffer);
 }
 
 /// <summary>
@@ -115,10 +117,10 @@ static void parse_winhttp_headers(HINTERNET request_handle, utf16char* headersSt
     parse_reason_phrase(request_handle, p_response->m_reason_phrase);
 
     utf16char* context = nullptr;
-    utf16char* line = wcstok_s(headersStr, U("\r\n"), &context);
+    utf16char* line = wcstok_s(headersStr, L"\r\n", &context);
     while (line != nullptr)
     {
-        const utility::string_t header_line(line);
+        const utility::string_t header_line = utility::conversions::to_string_t(line);
         const size_t colonIndex = header_line.find_first_of(U(":"));
         if (colonIndex != utility::string_t::npos)
         {
@@ -128,7 +130,7 @@ static void parse_winhttp_headers(HINTERNET request_handle, utf16char* headersSt
             tests::functional::http::utilities::trim_whitespace(value);
             p_response->m_headers[key] = value;
         }
-        line = wcstok_s(nullptr, U("\r\n"), &context);
+        line = wcstok_s(nullptr, L"\r\n", &context);
     }
 }
 
@@ -140,7 +142,7 @@ public:
     unsigned long open()
     {
         // Open session.
-        m_hSession = WinHttpOpen(U("test_http_client"),
+        m_hSession = WinHttpOpen(L"test_http_client",
                                  WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                                  WINHTTP_NO_PROXY_NAME,
                                  WINHTTP_NO_PROXY_BYPASS,
@@ -176,7 +178,8 @@ public:
         // Open connection.
         ::http::uri u(m_uri);
         unsigned int port = u.is_port_default() ? INTERNET_DEFAULT_PORT : u.port();
-        m_hConnection = WinHttpConnect(m_hSession, u.host().c_str(), (INTERNET_PORT)port, 0);
+        m_hConnection =
+            WinHttpConnect(m_hSession, utility::conversions::to_utf16string(u.host()).c_str(), (INTERNET_PORT)port, 0);
         if (m_hConnection == nullptr)
         {
             return GetLastError();
@@ -220,8 +223,13 @@ public:
                           void* data,
                           size_t data_length)
     {
-        HINTERNET request_handle = WinHttpOpenRequest(
-            m_hConnection, method.c_str(), path.c_str(), NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
+        HINTERNET request_handle = WinHttpOpenRequest(m_hConnection,
+                                                      utility::conversions::to_utf16string(method).c_str(),
+                                                      utility::conversions::to_utf16string(path).c_str(),
+                                                      NULL,
+                                                      WINHTTP_NO_REFERER,
+                                                      WINHTTP_DEFAULT_ACCEPT_TYPES,
+                                                      0);
         if (request_handle == nullptr)
         {
             return GetLastError();
@@ -230,7 +238,7 @@ public:
         // Add headers.
         if (!headers.empty())
         {
-            utility::string_t flattened_headers = flatten_http_headers(headers);
+            utf16string flattened_headers = utility::conversions::to_utf16string(flatten_http_headers(headers));
             if (!WinHttpAddRequestHeaders(request_handle,
                                           flattened_headers.c_str(),
                                           (DWORD)flattened_headers.length(),
@@ -321,7 +329,7 @@ private:
 
                 // Now allocate buffer for headers and query for them.
                 std::vector<unsigned char> header_raw_buffer;
-                header_raw_buffer.resize(headers_length);
+                header_raw_buffer.resize(headers_length, '\0');
                 utf16char* header_buffer = reinterpret_cast<utf16char*>(&header_raw_buffer[0]);
                 if (!WinHttpQueryHeaders(hRequestHandle,
                                          WINHTTP_QUERY_RAW_HEADERS_CRLF,

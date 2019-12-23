@@ -23,7 +23,7 @@ namespace functional
 {
 namespace json_tests
 {
-#ifdef _WIN32
+#ifdef _UTF16_STRINGS
 
 SUITE(json_fuzz_tests)
 {
