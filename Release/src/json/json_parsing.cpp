@@ -1166,7 +1166,7 @@ static web::json::value _parse_stream(utility::istream_t& stream, std::error_cod
     return returnObject;
 }
 
-#ifdef _WIN32
+#ifdef _UTF16_STRINGS
 static web::json::value _parse_narrow_stream(std::istream& stream)
 {
     web::json::details::JSON_StreamParser<char> parser(stream);
@@ -1269,7 +1269,7 @@ web::json::value web::json::value::parse(utility::istream_t& stream, std::error_
     return _parse_stream(stream, error);
 }
 
-#ifdef _WIN32
+#ifdef _UTF16_STRINGS
 web::json::value web::json::value::parse(std::istream& stream) { return _parse_narrow_stream(stream); }
 
 web::json::value web::json::value::parse(std::istream& stream, std::error_code& error)
