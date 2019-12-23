@@ -194,15 +194,13 @@ public:
     /// Creates an <c>http_exception</c> with just a string message and no error code.
     /// </summary>
     /// <param name="whatArg">Error message string.</param>
-    http_exception(const utility::string_t& whatArg) : m_msg(utility::conversions::to_utf8string(whatArg)) {}
+    http_exception(const utf16string& whatArg) : m_msg(utility::conversions::to_utf8string(whatArg)) {}
 
-#ifdef _WIN32
     /// <summary>
     /// Creates an <c>http_exception</c> with just a string message and no error code.
     /// </summary>
     /// <param name="whatArg">Error message string.</param>
     http_exception(std::string whatArg) : m_msg(std::move(whatArg)) {}
-#endif
 
     /// <summary>
     /// Creates an <c>http_exception</c> with from a error code using the current platform error category.
@@ -219,13 +217,12 @@ public:
     /// </summary>
     /// <param name="errorCode">Error code value.</param>
     /// <param name="whatArg">Message to use in what() string.</param>
-    http_exception(int errorCode, const utility::string_t& whatArg)
+    http_exception(int errorCode, const utf16string& whatArg)
         : m_errorCode(utility::details::create_error_code(errorCode))
         , m_msg(utility::conversions::to_utf8string(whatArg))
     {
     }
 
-#ifdef _WIN32
     /// <summary>
     /// Creates an <c>http_exception</c> with from a error code using the current platform error category.
     /// </summary>
@@ -235,7 +232,6 @@ public:
         : m_errorCode(utility::details::create_error_code(errorCode)), m_msg(std::move(whatArg))
     {
     }
-#endif
 
     /// <summary>
     /// Creates an <c>http_exception</c> with from a error code and category. The message of the error code will be used
@@ -253,12 +249,11 @@ public:
     /// </summary>
     /// <param name="errorCode">Error code value.</param>
     /// <param name="whatArg">Error message string.</param>
-    http_exception(std::error_code errorCode, const utility::string_t& whatArg)
+    http_exception(std::error_code errorCode, const utf16string& whatArg)
         : m_errorCode(std::move(errorCode)), m_msg(utility::conversions::to_utf8string(whatArg))
     {
     }
 
-#ifdef _WIN32
     /// <summary>
     /// Creates an <c>http_exception</c> with from a error code with a category, and a string message.
     /// </summary>
@@ -268,7 +263,6 @@ public:
         : m_errorCode(std::move(errorCode)), m_msg(std::move(whatArg))
     {
     }
-#endif
 
     /// <summary>
     /// Gets a string identifying the cause of the exception.
