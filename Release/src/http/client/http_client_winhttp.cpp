@@ -94,8 +94,8 @@ static http::status_code parse_status_code(HINTERNET request_handle)
 {
     DWORD length = 0;
     query_header_length(request_handle, WINHTTP_QUERY_STATUS_CODE, length);
-    utility::string_t buffer;
-    buffer.resize(length);
+    std::wstring buffer;
+    buffer.resize(length / sizeof(wchar_t), L'\0');
     WinHttpQueryHeaders(request_handle,
                         WINHTTP_QUERY_STATUS_CODE,
                         WINHTTP_HEADER_NAME_BY_INDEX,
@@ -108,11 +108,11 @@ static http::status_code parse_status_code(HINTERNET request_handle)
 // Helper function to get the reason phrase from a WinHTTP response.
 static utility::string_t parse_reason_phrase(HINTERNET request_handle)
 {
-    utility::string_t phrase;
+    std::wstring phrase;
     DWORD length = 0;
 
     query_header_length(request_handle, WINHTTP_QUERY_STATUS_TEXT, length);
-    phrase.resize(length);
+    phrase.resize(length / sizeof(wchar_t), L'\0');
     WinHttpQueryHeaders(request_handle,
                         WINHTTP_QUERY_STATUS_TEXT,
                         WINHTTP_HEADER_NAME_BY_INDEX,
@@ -121,13 +121,13 @@ static utility::string_t parse_reason_phrase(HINTERNET request_handle)
                         WINHTTP_NO_HEADER_INDEX);
     // WinHTTP reports back the wrong length, trim any null characters.
     ::web::http::details::trim_nulls(phrase);
-    return phrase;
+    return utility::conversions::to_string_t(phrase);
 }
 
 /// <summary>
 /// Parses a string containing HTTP headers.
 /// </summary>
-static void parse_winhttp_headers(HINTERNET request_handle, _In_z_ utility::char_t* headersStr, http_response& response)
+static void parse_winhttp_headers(HINTERNET request_handle, _In_z_ wchar_t* headersStr, http_response& response)
 {
     // Clear the header map for each new response; otherwise, the header values will be combined.
     response.headers().clear();
@@ -136,7 +136,12 @@ static void parse_winhttp_headers(HINTERNET request_handle, _In_z_ utility::char
     response.set_status_code(parse_status_code(request_handle));
     response.set_reason_phrase(parse_reason_phrase(request_handle));
 
+#ifdef _UTF16_STRINGS
     web::http::details::parse_headers_string(headersStr, response.headers());
+#else
+    utility::string_t buffer = utility::conversions::to_string_t(headersStr);
+    web::http::details::parse_headers_string(&buffer[0], response.headers());
+#endif
 }
 
 // Helper function to build error messages.
@@ -552,7 +557,7 @@ public:
 
     void install_custom_cn_check(const utility::string_t& customHost)
     {
-        m_customCnCheck = customHost;
+        m_customCnCheck = utility::conversions::to_utf16string(customHost);
         utility::details::inplace_tolower(m_customCnCheck);
     }
 
@@ -670,7 +675,7 @@ protected:
     }
 
 private:
-    utility::string_t m_customCnCheck;
+    std::wstring m_customCnCheck;
     std::vector<unsigned char> m_cachedEncodedCert;
 
     // Can only create on the heap using factory function.
@@ -803,10 +808,10 @@ protected:
         ie_proxy_config proxyIE;
 
         DWORD access_type;
-        LPCTSTR proxy_name = WINHTTP_NO_PROXY_NAME;
-        LPCTSTR proxy_bypass = WINHTTP_NO_PROXY_BYPASS;
+        LPCWSTR proxy_name = WINHTTP_NO_PROXY_NAME;
+        LPCWSTR proxy_bypass = WINHTTP_NO_PROXY_BYPASS;
         m_proxy_auto_config = false;
-        utility::string_t proxy_str;
+        std::wstring proxy_str;
         http::uri uri;
 
         const auto& config = client_config();
@@ -868,21 +873,16 @@ protected:
             // WinHttpOpen happy proxy_str is intentionally declared at the function level to avoid pointing to the
             // string in the destructed object
             uri = config.proxy().address();
-            if (uri.is_port_default())
+            proxy_str = utility::conversions::to_utf16string(uri.host());
+            if (!uri.is_port_default())
             {
-                proxy_name = uri.host().c_str();
-            }
-            else
-            {
-                proxy_str = uri.host();
                 if (uri.port() > 0)
                 {
-                    proxy_str.push_back(_XPLATSTR(':'));
-                    proxy_str.append(::utility::conversions::details::to_string_t(uri.port()));
+                    proxy_str.push_back(L':');
+                    proxy_str.append(std::to_wstring(uri.port()));
                 }
-
-                proxy_name = proxy_str.c_str();
             }
+            proxy_name = proxy_str.c_str();
         }
 
         // Open session.
@@ -942,7 +942,7 @@ protected:
         unsigned int port = m_uri.is_port_default()
                                 ? (m_secure ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT)
                                 : m_uri.port();
-        m_hConnection = WinHttpConnect(m_hSession, m_uri.host().c_str(), (INTERNET_PORT)port, 0);
+        m_hConnection = WinHttpConnect(m_hSession, utility::conversions::to_utf16string(m_uri.host()).c_str(), (INTERNET_PORT)port, 0);
 
         if (m_hConnection == nullptr)
         {
@@ -1003,7 +1003,7 @@ protected:
 
             autoproxy_options.fAutoLogonIfChallenged = TRUE;
 
-            auto result = WinHttpGetProxyForUrl(m_hSession, m_uri.to_string().c_str(), &autoproxy_options, &info);
+            auto result = WinHttpGetProxyForUrl(m_hSession, utility::conversions::to_utf16string(m_uri.to_string()).c_str(), &autoproxy_options, &info);
             if (result)
             {
                 proxy_info_required = true;
@@ -1016,15 +1016,15 @@ protected:
 
         // Need to form uri path, query, and fragment for this request.
         // Make sure to keep any path that was specified with the uri when the http_client was created.
-        const utility::string_t encoded_resource =
-            http::uri_builder(m_uri).append(msg.relative_uri()).to_uri().resource().to_string();
+        const std::wstring encoded_resource = 
+            utility::conversions::to_utf16string(http::uri_builder(m_uri).append(msg.relative_uri()).to_uri().resource().to_string());
 
         // Open the request.
         winhttp_context->m_request_handle_context = new std::weak_ptr<winhttp_request_context>(winhttp_context);
 
         winhttp_context->m_request_handle =
             WinHttpOpenRequest(m_hConnection,
-                               msg.method().c_str(),
+                               utility::conversions::to_utf16string(msg.method()).c_str(),
                                encoded_resource.c_str(),
                                nullptr,
                                WINHTTP_NO_REFERER,
@@ -1163,11 +1163,11 @@ protected:
             }
         }
 
-        utility::string_t flattened_headers = web::http::details::flatten_http_headers(headers);
+        std::wstring flattened_headers = utility::conversions::to_utf16string(web::http::details::flatten_http_headers(headers));
         if (winhttp_context->m_request.method() == http::methods::GET)
         {
             // Prepare to request a compressed response from the server if necessary.
-            flattened_headers += winhttp_context->get_compression_header();
+            flattened_headers += utility::conversions::to_utf16string(winhttp_context->get_compression_header());
         }
 
         // Add headers.
@@ -1827,11 +1827,11 @@ private:
 
             // New scope to ensure plaintext password is cleared as soon as possible.
             {
-                auto password = cred._internal_decrypt();
+                auto password = cred._internal_decrypt<std::wstring>();
                 if (!WinHttpSetCredentials(hRequestHandle,
                                            dwAuthTarget,
                                            dwSelectedScheme,
-                                           cred.username().c_str(),
+                                           utility::conversions::to_utf16string(cred.username()).c_str(),
                                            password->c_str(),
                                            nullptr))
                 {
@@ -2034,8 +2034,8 @@ private:
 
                 // Now allocate buffer for headers and query for them.
                 std::vector<unsigned char> header_raw_buffer;
-                header_raw_buffer.resize(headerBufferLength);
-                utility::char_t* header_buffer = reinterpret_cast<utility::char_t*>(&header_raw_buffer[0]);
+                header_raw_buffer.resize(headerBufferLength, '\0');
+                utf16char* header_buffer = reinterpret_cast<utf16char*>(&header_raw_buffer[0]);
                 if (!WinHttpQueryHeaders(hRequestHandle,
                                          WINHTTP_QUERY_RAW_HEADERS_CRLF,
                                          WINHTTP_HEADER_NAME_BY_INDEX,
@@ -2478,7 +2478,7 @@ private:
     // the proxy configuration script at the given URL if it's not empty or
     // using WPAD otherwise.
     bool m_proxy_auto_config {false};
-    utility::string_t m_proxy_auto_config_url;
+    std::wstring m_proxy_auto_config_url;
 };
 
 std::shared_ptr<_http_client_communicator> create_platform_final_pipeline_stage(uri&& base_uri,
