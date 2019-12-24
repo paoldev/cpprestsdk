@@ -32,7 +32,11 @@
 
 namespace utility
 {
-#ifdef _WIN32
+#if defined(_UTF16_STRINGS) && defined(CPPREST_FORCE_NARROW_STRINGS)
+#error CPPREST_FORCE_NARROW_STRINGS can't be defined if _UTF16_STRINGS is defined.
+#endif
+
+#if defined(_WIN32) && !defined(_UTF16_STRINGS) && !defined(CPPREST_FORCE_NARROW_STRINGS)
 #define _UTF16_STRINGS
 #endif
 
