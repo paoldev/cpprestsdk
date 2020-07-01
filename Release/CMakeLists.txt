@@ -1,5 +1,5 @@
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.9)
 if(POLICY CMP0042)
   cmake_policy(SET CMP0042 NEW) # use MACOSX_RPATH
 endif()
@@ -11,7 +11,7 @@ endif()
 
 set(CPPREST_VERSION_MAJOR 2)
 set(CPPREST_VERSION_MINOR 10)
-set(CPPREST_VERSION_REVISION 14)
+set(CPPREST_VERSION_REVISION 16)
 
 enable_testing()
 
@@ -19,8 +19,8 @@ set(WERROR ON CACHE BOOL "Treat Warnings as Errors.")
 set(CPPREST_EXCLUDE_WEBSOCKETS OFF CACHE BOOL "Exclude websockets functionality.")
 set(CPPREST_EXCLUDE_COMPRESSION OFF CACHE BOOL "Exclude compression functionality.")
 set(CPPREST_EXCLUDE_BROTLI ON CACHE BOOL "Exclude Brotli compression functionality.")
-set(CPPREST_EXPORT_DIR cpprestsdk CACHE STRING "Directory to install CMake config files.")
 set(CPPREST_FORCE_NARROW_STRINGS OFF CACHE BOOL "Keep strings narrow/UTF8 (even if WIN32)")
+set(CPPREST_EXPORT_DIR cpprestsdk CACHE STRING "Directory to install CMake config files.")
 set(CPPREST_INSTALL_HEADERS ON CACHE BOOL "Install header files.")
 set(CPPREST_INSTALL ON CACHE BOOL "Add install commands.")
 

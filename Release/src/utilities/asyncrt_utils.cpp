@@ -124,7 +124,7 @@ scoped_c_thread_locale::xplat_locale scoped_c_thread_locale::c_locale()
             delete clocale;
         };
 #else
-        *clocale = newlocale(LC_ALL, "C", nullptr);
+        *clocale = newlocale(LC_ALL_MASK, "C", nullptr);
         if (clocale == nullptr || *clocale == nullptr)
         {
             throw std::runtime_error("Unable to create 'C' locale.");
@@ -1148,7 +1148,7 @@ datetime __cdecl datetime::from_string(const utility::string_t& dateString, date
             {
                 tzHours = 8;
             }
-            else if ((tzCh == _XPLATSTR('+') || tzCh == _XPLATSTR('-')) && ascii_isdigit2(str[1]) &&
+            else if ((str[0] == _XPLATSTR('+') || str[0] == _XPLATSTR('-')) && ascii_isdigit2(str[1]) &&
                      ascii_isdigit(str[2]) && ascii_isdigit5(str[3]) && ascii_isdigit(str[4]))
             {
                 tzCh = str[0];
