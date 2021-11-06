@@ -1,3 +1,5 @@
+**cpprestsdk is in maintenance mode and we do not recommend its use in new projects. We will continue to fix critical bugs and address security issues.**
+
 ## Welcome!
 
 The C++ REST SDK is a Microsoft project for cloud-based client-server communication in native code using a modern asynchronous C++ API design. This project aims to help C++ developers connect to and interact with services.  
@@ -70,7 +72,6 @@ We'd love to get your review score, whether good or bad, but even more than that
 *   [FAQ](https://github.com/Microsoft/cpprestsdk/wiki/FAQ)
 *   [Documentation](https://github.com/Microsoft/cpprestsdk/wiki)
 *   [Issue Tracker](https://github.com/Microsoft/cpprestsdk/issues)
-*   Directly contact us: <askcasablanca@microsoft.com>
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
