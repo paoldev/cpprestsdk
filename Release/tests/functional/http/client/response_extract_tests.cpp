@@ -367,12 +367,12 @@ SUITE(response_extract_tests)
 
 #ifdef _WIN32
         // utf-16le
-        auto utf16str = data.serialize();
+        auto utf16str = utility::conversions::to_utf16string(data.serialize());
         rsp = send_request_response(scoped.server(), &client, U("application/json; charset=utf-16le"), utf16str);
         VERIFY_ARE_EQUAL(data.serialize(), rsp.extract_json().get().serialize());
 
         // utf-16be
-        utf16string modified_data = data.serialize();
+        utf16string modified_data = utility::conversions::to_utf16string(data.serialize());
         modified_data = switch_endian_ness(modified_data);
         rsp = send_request_response(scoped.server(), &client, U("application/json; charset=utf-16be"), modified_data);
         VERIFY_ARE_EQUAL(data.serialize(), rsp.extract_json().get().serialize());
@@ -382,7 +382,7 @@ SUITE(response_extract_tests)
         VERIFY_ARE_EQUAL(data.serialize(), rsp.extract_json().get().serialize());
 
         // utf-16 big endian BOM.
-        modified_data.insert(modified_data.begin(), U('\0'));
+        modified_data.insert(modified_data.begin(), L'\0');
         unsigned char* start = (unsigned char*)&modified_data[0];
         start[0] = 0xFE;
         start[1] = 0xFF;
@@ -390,8 +390,8 @@ SUITE(response_extract_tests)
         VERIFY_ARE_EQUAL(data.serialize(), rsp.extract_json().get().serialize());
 
         // utf-16 little endian BOM.
-        modified_data = data.serialize();
-        modified_data.insert(modified_data.begin(), U('\0'));
+        modified_data = utility::conversions::to_utf16string(data.serialize());
+        modified_data.insert(modified_data.begin(), L'\0');
         start = (unsigned char*)&modified_data[0];
         start[0] = 0xFF;
         start[1] = 0xFE;

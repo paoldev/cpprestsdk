@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
     utility::string_t port = U("34568");
     if (argc == 2)
     {
-        port = argv[1];
+        port = utility::conversions::to_string_t(argv[1]);
     }
 
     utility::string_t address = U("http://localhost:");

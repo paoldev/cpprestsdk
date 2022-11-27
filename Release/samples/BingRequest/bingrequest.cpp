@@ -33,7 +33,7 @@ web::http::client::http_client_config client_config_for_proxy()
     if (pValue) holder.reset(pValue);
     if (!err && pValue && len)
     {
-        std::wstring env_http_proxy_string(pValue, len - 1);
+        utility::string_t env_http_proxy_string = utility::conversions::to_string_t(std::wstring(pValue, len - 1));
 #else
     if (const char* env_http_proxy = std::getenv("http_proxy"))
     {
@@ -59,8 +59,8 @@ int main(int argc, char* args[])
         printf("Usage: BingRequest.exe search_term output_file\n");
         return -1;
     }
-    const string_t searchTerm = args[1];
-    const string_t outputFileName = args[2];
+    const string_t searchTerm = utility::conversions::to_string_t(args[1]);
+    const string_t outputFileName = utility::conversions::to_string_t(args[2]);
 
     // Open a stream to the file to write the HTTP response body into.
     auto fileBuffer = std::make_shared<streambuf<uint8_t>>();

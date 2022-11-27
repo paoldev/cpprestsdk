@@ -217,18 +217,18 @@ public:
         }
 
         // Create request queue.
-        error_code = HttpCreateRequestQueue(httpApiVersion, U("test_http_server"), NULL, NULL, &m_request_queue);
+        error_code = HttpCreateRequestQueue(httpApiVersion, L"test_http_server", NULL, NULL, &m_request_queue);
         if (error_code)
         {
             throw std::runtime_error("error code: " + std::to_string(error_code));
         }
 
         // Windows HTTP Server API will not accept a uri with an empty path, it must have a '/'.
-        auto host_uri = uri.to_string();
-        if (uri.is_path_empty() && host_uri[host_uri.length() - 1] != '/' && uri.query().empty() &&
+        utf16string host_uri = to_utf16string(uri.to_string());
+        if (uri.is_path_empty() && host_uri[host_uri.length() - 1] != L'/' && uri.query().empty() &&
             uri.fragment().empty())
         {
-            host_uri.append(U("/"));
+            host_uri.append(L"/");
         }
 
         // Add Url.
@@ -290,7 +290,7 @@ public:
 
         // Now create request structure.
         auto p_test_request = std::unique_ptr<test_request>(new test_request(p_http_request->RequestId, this));
-        p_test_request->m_path = utf8_to_utf16(p_http_request->pRawUrl);
+        p_test_request->m_path = to_string_t(p_http_request->pRawUrl);
         p_test_request->m_method = parse_verb(p_http_request);
         p_test_request->m_headers = parse_http_headers(p_http_request->Headers);
 
@@ -353,11 +353,11 @@ public:
         m_closing = 1;
 
         // Windows HTTP Server API will not accept a uri with an empty path, it must have a '/'.
-        utility::string_t host_uri = m_uri.to_string();
-        if (m_uri.is_path_empty() && host_uri[host_uri.length() - 1] != '/' && m_uri.query().empty() &&
+        utf16string host_uri = to_utf16string(m_uri.to_string());
+        if (m_uri.is_path_empty() && host_uri[host_uri.length() - 1] != L'/' && m_uri.query().empty() &&
             m_uri.fragment().empty())
         {
-            host_uri.append(U("/"));
+            host_uri.append(L"/");
         }
 
         // Remove Url.
@@ -420,8 +420,8 @@ public:
             int headerIndex = 1;
             for (auto iter = headers.begin(); iter != headers.end(); ++iter, ++headerIndex)
             {
-                headers_buffer[headerIndex * 2] = utf16_to_utf8(iter->first);
-                headers_buffer[headerIndex * 2 + 1] = utf16_to_utf8(iter->second);
+                headers_buffer[headerIndex * 2] = to_utf8string(iter->first);
+                headers_buffer[headerIndex * 2 + 1] = to_utf8string(iter->second);
 
                 // TFS 624150
 #pragma warning(push)

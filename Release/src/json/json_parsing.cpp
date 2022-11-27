@@ -1232,7 +1232,7 @@ web::json::value web::json::value::parse(utility::istream_t& stream, std::error_
     return _parse_stream(stream, error);
 }
 
-#ifdef _WIN32
+#ifdef _UTF16_STRINGS
 web::json::value web::json::value::parse(const std::string& str) { return _parse_string(str); }
 
 web::json::value web::json::value::parse(const std::string& str, std::error_code& error)

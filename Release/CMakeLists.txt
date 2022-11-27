@@ -19,6 +19,7 @@ set(WERROR ON CACHE BOOL "Treat Warnings as Errors.")
 set(CPPREST_EXCLUDE_WEBSOCKETS OFF CACHE BOOL "Exclude websockets functionality.")
 set(CPPREST_EXCLUDE_COMPRESSION OFF CACHE BOOL "Exclude compression functionality.")
 set(CPPREST_EXCLUDE_BROTLI ON CACHE BOOL "Exclude Brotli compression functionality.")
+set(CPPREST_FORCE_NARROW_STRINGS OFF CACHE BOOL "Keep strings narrow/UTF8 (even if WIN32)")
 set(CPPREST_EXPORT_DIR cmake/cpprestsdk CACHE STRING "Directory to install CMake config files.")
 set(CPPREST_INSTALL_HEADERS ON CACHE BOOL "Install header files.")
 set(CPPREST_INSTALL ON CACHE BOOL "Add install commands.")
@@ -115,6 +116,11 @@ endif()
 
 set(WARNINGS)
 set(ANDROID_LIBS)
+
+# Generic build settings
+if(CPPREST_FORCE_NARROW_STRINGS)
+  add_definitions(-DCPPREST_FORCE_NARROW_STRINGS)
+endif()
 
 # Platform (not compiler) specific settings
 if(ANDROID)

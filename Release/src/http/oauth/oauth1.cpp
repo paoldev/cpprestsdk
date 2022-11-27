@@ -62,8 +62,8 @@ std::vector<unsigned char> oauth1_config::_hmac_sha1(const utility::string_t& ke
     DWORD hash_len = 0;
     ULONG result_len = 0;
 
-    const auto& key_c = conversions::utf16_to_utf8(key);
-    const auto& data_c = conversions::utf16_to_utf8(data);
+    const auto& key_c = conversions::to_utf8string(key);
+    const auto& data_c = conversions::to_utf8string(data);
 
     status = BCryptOpenAlgorithmProvider(&alg_handle, BCRYPT_SHA1_ALGORITHM, nullptr, BCRYPT_ALG_HANDLE_HMAC_FLAG);
     if (!NT_SUCCESS(status))
@@ -115,8 +115,8 @@ using namespace Windows::Storage::Streams;
 
 std::vector<unsigned char> oauth1_config::_hmac_sha1(const utility::string_t& key, const utility::string_t& data)
 {
-    Platform::String ^ data_str = ref new Platform::String(data.c_str());
-    Platform::String ^ key_str = ref new Platform::String(key.c_str());
+    Platform::String ^ data_str = ref new Platform::String(conversions::to_utf16string(data).c_str());
+    Platform::String ^ key_str = ref new Platform::String(conversions::to_utf16string(key).c_str());
 
     MacAlgorithmProvider ^ HMACSha1Provider = MacAlgorithmProvider::OpenAlgorithm(MacAlgorithmNames::HmacSha1);
     IBuffer ^ content_buffer = CryptographicBuffer::ConvertStringToBinary(data_str, BinaryStringEncoding::Utf8);

@@ -149,7 +149,7 @@ SUITE(negative_parsing_tests)
     }
 
 // Test using Windows only API.
-#ifdef _WIN32
+#ifdef _UTF16_STRINGS
     TEST(wstream_left_over_chars)
     {
         std::wstringbuf buf;

@@ -73,7 +73,7 @@ public:
     {
         http_response& response = m_request->m_response;
         response.set_status_code((http::status_code)dw);
-        response.set_reason_phrase(phrase);
+        response.set_reason_phrase(utility::conversions::to_string_t(phrase));
 
         utf16char* hdrStr = nullptr;
         HRESULT hr = xmlReq->GetAllResponseHeaders(&hdrStr);
@@ -87,7 +87,12 @@ public:
                     (*progress)(message_direction::upload, 0);
                 }
 
+#ifdef _UTF16_STRINGS
                 web::http::details::parse_headers_string(hdrStr, response.headers());
+#else
+                auto buffer = utility::conversions::to_string_t(hdrStr); 
+                web::http::details::parse_headers_string(&buffer[0], response.headers());
+#endif
                 m_request->complete_headers();
             }
             catch (...)
@@ -156,7 +161,7 @@ public:
             std::wstring msg(L"IXMLHttpRequest2Callback::OnError: ");
             msg.append(std::to_wstring(hrError));
             msg.append(L": ");
-            msg.append(utility::conversions::to_string_t(utility::details::windows_category().message(hrError)));
+            msg.append(utility::conversions::to_utf16string(utility::details::windows_category().message(hrError)));
             m_request->report_error(hrError, msg);
         }
         else
@@ -422,7 +427,7 @@ protected:
             return;
         }
 
-        utility::string_t encoded_resource = http::uri_builder(m_uri).append(msg.relative_uri()).to_string();
+        std::wstring encoded_resource = utility::conversions::to_utf16string(http::uri_builder(m_uri).append(msg.relative_uri()).to_string());
 
         const auto& config = client_config();
         const auto& client_cred = config.credentials();
@@ -436,25 +441,25 @@ protected:
 
         // New scope to ensure plain text password is cleared as soon as possible.
         {
-            utility::string_t username, proxy_username;
-            const utility::char_t* password = nullptr;
-            const utility::char_t* proxy_password = nullptr;
-            ::web::details::plaintext_string password_plaintext, proxy_password_plaintext;
+            std::wstring username, proxy_username;
+            const wchar_t* password = nullptr;
+            const wchar_t* proxy_password = nullptr;
+            ::web::details::plaintext_string<std::wstring> password_plaintext, proxy_password_plaintext;
 
             if (client_cred.is_set())
             {
-                username = client_cred.username();
-                password_plaintext = client_cred._internal_decrypt();
+                username = utility::conversions::to_utf16string(client_cred.username());
+                password_plaintext = client_cred._internal_decrypt<std::wstring>();
                 password = password_plaintext->c_str();
             }
             if (proxy_cred.is_set())
             {
-                proxy_username = proxy_cred.username();
-                proxy_password_plaintext = proxy_cred._internal_decrypt();
+                proxy_username = utility::conversions::to_utf16string(proxy_cred.username());
+                proxy_password_plaintext = proxy_cred._internal_decrypt<std::wstring>();
                 proxy_password = proxy_password_plaintext->c_str();
             }
 
-            hr = winrt_context->m_hRequest->Open(msg.method().c_str(),
+            hr = winrt_context->m_hRequest->Open(utility::conversions::to_utf16string(msg.method()).c_str(),
                                                  encoded_resource.c_str(),
                                                  Make<HttpRequestCallback>(winrt_context).Get(),
                                                  username.c_str(),
@@ -500,7 +505,7 @@ protected:
         // Add headers.
         for (const auto& hdr : msg.headers())
         {
-            winrt_context->m_hRequest->SetRequestHeader(hdr.first.c_str(), hdr.second.c_str());
+            winrt_context->m_hRequest->SetRequestHeader(utility::conversions::to_utf16string(hdr.first).c_str(), utility::conversions::to_utf16string(hdr.second).c_str());
         }
 
         // Set response stream.

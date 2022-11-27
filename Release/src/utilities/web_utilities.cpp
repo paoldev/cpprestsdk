@@ -29,6 +29,54 @@ namespace details
 {
 #ifdef _WIN32
 #if _WIN32_WINNT >= _WIN32_WINNT_VISTA
+
+struct UtfConverter
+{
+    template<typename T>
+    static plaintext_string<T>&& convert(plaintext_string<T>&& s)
+    {
+        return std::move(s);
+    }
+
+    template<typename T>
+    static plaintext_string<utf8string> convert(const plaintext_string<utf16string>& s)
+    {
+        // The destructor of s will securely cleanup this memory area.
+        // Can't use to_utf8string or utf16_to_utf8, to avoid unneeded string copies (unless additional implementation
+        // will be exposed).
+        int numChars = ((*s).size() > 0)
+                           ? WideCharToMultiByte(
+                                 CP_UTF8, 0, (*s).data(), static_cast<int>((*s).size()), nullptr, 0, nullptr, nullptr)
+                           : 0;
+        auto result = plaintext_string<utf8string>(new utf8string(numChars, L'0'));
+        if (numChars > 0)
+        {
+            WideCharToMultiByte(
+                CP_UTF8, 0, (*s).data(), static_cast<int>((*s).size()), &(*result)[0], numChars, nullptr, nullptr);
+        }
+
+        return result;
+    }
+
+    template<typename T>
+    static plaintext_string<utf16string> convert(const plaintext_string<utf8string>& s)
+    {
+        // The destructor of s will securely cleanup this memory area.
+        // Can't use to_utf16string or utf8_to_utf16, to avoid unneeded string copies (unless additional implementation
+        // will be exposed).
+        int numWChars = ((*s).size() > 0)
+                            ? MultiByteToWideChar(CP_UTF8, 0, (*s).data(), static_cast<int>((*s).size()), nullptr, 0)
+                            : 0;
+        auto result = plaintext_string<utf16string>(new utf16string(numWChars, L'0'));
+        if (numWChars > 0)
+        {
+            MultiByteToWideChar(CP_UTF8, 0, (*s).data(), static_cast<int>((*s).size()), &(*result)[0], numWChars);
+        }
+
+        return result;
+    }
+};
+
 #ifdef __cplusplus_winrt
 
 // Helper function to zero out memory of an IBuffer.
@@ -47,15 +95,15 @@ void winrt_secure_zero_buffer(Windows::Storage::Streams::IBuffer ^ buffer)
     }
 }
 
-winrt_encryption::winrt_encryption(const std::wstring& data)
+winrt_encryption::winrt_encryption(const ::utility::string_t& data)
 {
     auto provider = ref new Windows::Security::Cryptography::DataProtection::DataProtectionProvider(
         ref new Platform::String(L"Local=user"));
 
     // Create buffer containing plain text password.
     Platform::ArrayReference<unsigned char> arrayref(
-        reinterpret_cast<unsigned char*>(const_cast<std::wstring::value_type*>(data.c_str())),
-        static_cast<unsigned int>(data.size()) * sizeof(std::wstring::value_type));
+        reinterpret_cast<unsigned char*>(const_cast<::utility::string_t::value_type*>(data.c_str())),
+        static_cast<unsigned int>(data.size()) * sizeof(::utility::string_t::value_type));
     Windows::Storage::Streams::IBuffer ^ plaintext =
         Windows::Security::Cryptography::CryptographicBuffer::CreateFromByteArray(arrayref);
     m_buffer = pplx::create_task(provider->ProtectAsync(plaintext));
@@ -63,7 +111,7 @@ winrt_encryption::winrt_encryption(const std::wstring& data)
         [plaintext](pplx::task<Windows::Storage::Streams::IBuffer ^>) { winrt_secure_zero_buffer(plaintext); });
 }
 
-plaintext_string winrt_encryption::decrypt() const
+plaintext_string<::utility::string_t> winrt_encryption::decrypt_t() const
 {
     // To fully guarantee asynchrony would require significant impact on existing code. This code path
     // is never run on a user's thread and is only done once when setting up a connection.
@@ -83,15 +131,21 @@ plaintext_string winrt_encryption::decrypt() const
     }
 
     // Construct string and zero out memory from plain text buffer.
-    auto data = plaintext_string(
-        new std::wstring(reinterpret_cast<const std::wstring::value_type*>(rawPlaintext), plaintext->Length / 2));
+    auto data = plaintext_string<::utility::string_t>(new ::utility::string_t(reinterpret_cast<const ::utility::string_t::value_type*>(rawPlaintext),
+                                plaintext->Length / sizeof(::utility::string_t::value_type)));
     SecureZeroMemory(rawPlaintext, plaintext->Length);
     return std::move(data);
 }
 
+template<typename T>
+plaintext_string<T> winrt_encryption::decrypt() const
+{
+    return std::move(UtfConverter::convert<T>(decrypt_t()));
+}
+
 #else  // ^^^ __cplusplus_winrt ^^^ // vvv !__cplusplus_winrt vvv
 
-win32_encryption::win32_encryption(const std::wstring& data) : m_numCharacters(data.size())
+win32_encryption::win32_encryption(const ::utility::string_t& data) : m_numCharacters(data.size())
 {
     // Early return because CryptProtectMemory crashes with empty string
     if (m_numCharacters == 0)
@@ -99,12 +153,18 @@ win32_encryption::win32_encryption(const std::wstring& data) : m_numCharacters(d
         return;
     }
 
-    if (data.size() > (std::numeric_limits<DWORD>::max)() / sizeof(wchar_t))
+    if (data.size() > (std::numeric_limits<DWORD>::max)() / sizeof(::utility::string_t::value_type))
     {
         throw std::length_error("Encryption string too long");
     }
 
-    const auto dataSizeDword = static_cast<DWORD>(data.size() * sizeof(wchar_t));
+    // See MultiByteToWideChar and WideCharToMultiByte called in UtfConverter.
+    if (data.size() > (std::numeric_limits<int>::max)() / sizeof(::utility::string_t::value_type))
+    {
+        throw std::length_error("Encryption string too long");
+    }
+
+    const auto dataSizeDword = static_cast<DWORD>(data.size() * sizeof(::utility::string_t::value_type));
 
     // Round up dataSizeDword to be a multiple of CRYPTPROTECTMEMORY_BLOCK_SIZE
     static_assert(CRYPTPROTECTMEMORY_BLOCK_SIZE == 16, "Power of 2 assumptions in this bit masking violated");
@@ -122,11 +182,12 @@ win32_encryption::win32_encryption(const std::wstring& data) : m_numCharacters(d
 
 win32_encryption::~win32_encryption() { SecureZeroMemory(m_buffer.data(), m_buffer.size()); }
 
-plaintext_string win32_encryption::decrypt() const
+plaintext_string<::utility::string_t> win32_encryption::decrypt_t() const
 {
     // Copy the buffer and decrypt to avoid having to re-encrypt.
-    auto result = plaintext_string(new std::wstring(reinterpret_cast<const std::wstring::value_type*>(m_buffer.data()),
-                                                    m_buffer.size() / sizeof(wchar_t)));
+    auto result = plaintext_string<::utility::string_t>(
+        new ::utility::string_t(reinterpret_cast<const ::utility::string_t::value_type*>(m_buffer.data()),
+                                m_buffer.size() / sizeof(::utility::string_t::value_type)));
     auto& data = *result;
     if (!m_buffer.empty())
     {
@@ -142,15 +203,23 @@ plaintext_string win32_encryption::decrypt() const
 
     return result;
 }
+
+template<typename T>
+plaintext_string<T> win32_encryption::decrypt() const
+{
+    return std::move(UtfConverter::convert<T>(decrypt_t()));
+}
+
 #endif // __cplusplus_winrt
 #endif // _WIN32_WINNT >= _WIN32_WINNT_VISTA
 #endif // _WIN32
 
-void zero_memory_deleter::operator()(::utility::string_t* data) const
+template<typename T>
+void zero_memory_deleter<T>::operator()(T* data) const
 {
     (void)data;
 #ifdef _WIN32
-    SecureZeroMemory(&(*data)[0], data->size() * sizeof(::utility::string_t::value_type));
+    SecureZeroMemory(&(*data)[0], data->size() * sizeof(typename T::value_type));
     delete data;
 #endif
 }

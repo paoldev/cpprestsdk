@@ -91,9 +91,9 @@ static utility::string_t HttpServerAPIRequestKnownHeaders[] =
     U("User-Agent")
 };
 
-static void char_to_wstring(utf16string& dest, const char* src)
+static void char_to_string_t(::utility::string_t& dest, const char* src)
 {
-    dest = utility::conversions::to_utf16string(std::string(src));
+    dest = utility::conversions::to_string_t(std::string(src));
 }
 
 http::method parse_request_method(const HTTP_REQUEST* p_request)
@@ -110,7 +110,7 @@ http::method parse_request_method(const HTTP_REQUEST* p_request)
         case HttpVerbOPTIONS: method = methods::OPTIONS; break;
         case HttpVerbTRACE: method = methods::TRCE; break;
         case HttpVerbCONNECT: method = methods::CONNECT; break;
-        case HttpVerbUnknown: char_to_wstring(method, p_request->pUnknownVerb); break;
+        case HttpVerbUnknown: char_to_string_t(method, p_request->pUnknownVerb); break;
         case HttpVerbMOVE: method = _XPLATSTR("MOVE"); break;
         case HttpVerbCOPY: method = _XPLATSTR("COPY"); break;
         case HttpVerbPROPFIND: method = _XPLATSTR("PROPFIND"); break;
@@ -135,14 +135,14 @@ void parse_http_headers(const HTTP_REQUEST_HEADERS& headers, http::http_headers&
     //      http_header class itself.
     for (USHORT i = 0; i < headers.UnknownHeaderCount; ++i)
     {
-        utf16string unknown_header_name;
-        char_to_wstring(unknown_header_name, headers.pUnknownHeaders[i].pName);
+        ::utility::string_t unknown_header_name;
+        char_to_string_t(unknown_header_name, headers.pUnknownHeaders[i].pName);
 
         // header value can be empty
         if (headers.pUnknownHeaders[i].RawValueLength > 0)
         {
             msgHeaders.add(unknown_header_name,
-                           utility::conversions::to_utf16string(headers.pUnknownHeaders[i].pRawValue));
+                           utility::conversions::to_string_t(headers.pUnknownHeaders[i].pRawValue));
         }
         else
         {
@@ -154,7 +154,7 @@ void parse_http_headers(const HTTP_REQUEST_HEADERS& headers, http::http_headers&
         if (headers.KnownHeaders[i].RawValueLength > 0)
         {
             msgHeaders.add(HttpServerAPIRequestKnownHeaders[i],
-                           utility::conversions::to_utf16string(headers.KnownHeaders[i].pRawValue));
+                           utility::conversions::to_string_t(headers.KnownHeaders[i].pRawValue));
         }
     }
 }
@@ -194,10 +194,10 @@ pplx::task<void> http_windows_server::register_listener(
 
     // Windows HTTP Server API will not accept a uri with an empty path, it must have a '/'.
     // Windows HTTP Server API will only accept decoded uri strings.
-    utility::string_t host_uri = http::uri::decode(u.to_string());
-    if (host_uri.back() != U('/') && u.query().empty() && u.fragment().empty())
+    std::wstring host_uri = to_utf16string(http::uri::decode(u.to_string()));
+    if (host_uri.back() != L'/' && u.query().empty() && u.fragment().empty())
     {
-        host_uri.push_back(U('/'));
+        host_uri.push_back(L'/');
     }
 
     // inside here we check for a few specific error types that know about
@@ -489,7 +489,7 @@ void windows_request_context::read_headers_io_completion(DWORD error_code, DWORD
             // HTTP_REQUEST::pRawUrl contains the raw URI that came across the wire.
             // Use this instead since the CookedUrl is a mess of the URI components
             // some encoded and some not.
-            m_msg.set_request_uri(utf8_to_utf16(m_request->pRawUrl));
+            m_msg.set_request_uri(to_string_t(m_request->pRawUrl));
         }
         catch (const uri_exception& e)
         {
@@ -587,7 +587,7 @@ void windows_request_context::read_headers_io_completion(DWORD error_code, DWORD
             remoteAddressBuffer[0] = L'\0';
         }
 
-        m_msg._get_impl()->_set_remote_address(&remoteAddressBuffer[0]);
+        m_msg._get_impl()->_set_remote_address(to_string_t(&remoteAddressBuffer[0]));
 
         // Start reading in body from the network.
         m_msg._get_impl()->_prepare_to_receive_data();
@@ -865,7 +865,7 @@ void windows_request_context::async_process_response()
     HTTP_RESPONSE win_api_response;
     ZeroMemory(&win_api_response, sizeof(win_api_response));
     win_api_response.StatusCode = m_response.status_code();
-    const std::string reason = utf16_to_utf8(m_response.reason_phrase());
+    const std::string reason = to_utf8string(m_response.reason_phrase());
     win_api_response.pReason = reason.c_str();
     win_api_response.ReasonLength = (USHORT)reason.size();
     size_t content_length;
@@ -926,8 +926,8 @@ void windows_request_context::async_process_response()
     int headerIndex = 0;
     for (auto iter = m_response.headers().begin(); iter != m_response.headers().end(); ++iter, ++headerIndex)
     {
-        m_headers_buffer[headerIndex * 2] = utf16_to_utf8(iter->first);
-        m_headers_buffer[headerIndex * 2 + 1] = utf16_to_utf8(iter->second);
+        m_headers_buffer[headerIndex * 2] = to_utf8string(iter->first);
+        m_headers_buffer[headerIndex * 2 + 1] = to_utf8string(iter->second);
         win_api_response.Headers.pUnknownHeaders[headerIndex].NameLength =
             (USHORT)m_headers_buffer[headerIndex * 2].size();
         win_api_response.Headers.pUnknownHeaders[headerIndex].pName = m_headers_buffer[headerIndex * 2].c_str();

@@ -912,9 +912,8 @@ SUITE(file_buffer_tests)
     TEST(read_one_byte_at_4G)
     {
         // Create a file with one byte.
-        string_t filename = U("read_one_byte_at_4G.txt");
         // create a sparse file with sparse file apis
-        auto handle = CreateSparseFile(filename.c_str());
+        auto handle = CreateSparseFile(TEXT("read_one_byte_at_4G.txt"));
         VERIFY_ARE_NOT_EQUAL(handle, INVALID_HANDLE_VALUE);
 
         // write 1 byte
@@ -930,7 +929,7 @@ SUITE(file_buffer_tests)
         CloseHandle(handle);
 
         // read the file with casablanca streams
-        concurrency::streams::streambuf<char> file_buf = OPEN<char>(filename, std::ios_base::in).get();
+        concurrency::streams::streambuf<char> file_buf = OPEN<char>(U("read_one_byte_at_4G.txt"), std::ios_base::in).get();
         file_buf.seekoff(4 * 1024 * 1024 * 1024ll, ::std::ios_base::beg, ::std::ios_base::in);
 
         int aCharacter = file_buf.getc().get();
